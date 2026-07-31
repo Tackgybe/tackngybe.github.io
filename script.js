@@ -1,102 +1,141 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* Animated ocean wave background */
-    background: linear-gradient(135deg, #006994, #003366, #1ca3ec);
-    background-size: 400% 400%;
-    animation: waveBackground 12s ease infinite;
-    color: #fff;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    align-items: center;
-    justify-content: center;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score');
+    const restartBtn = document.getElementById('restartBtn');
 
-@keyframes waveBackground {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
+    let score = 0;
+    let isGameOver = false;
 
-header {
-    text-align: center;
-    margin-bottom: 15px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
+    // Player (Boat) properties
+    let boat = {
+        x: canvas.width / 2 - 15,
+        y: canvas.height - 60,
+        width: 30,
+        height: 45,
+        speed: 5,
+        dx: 0
+    };
 
-header h1 {
-    color: #7fffd4;
-    font-size: 2.3rem;
-    margin-bottom: 5px;
-}
+    // Obstacles (Rocks) array
+    let obstacles = [];
+    let obstacleTimer = 0;
 
-header p {
-    margin: 0;
-    font-size: 0.95rem;
-}
+    // Track keyboard controls
+    let keys = {
+        ArrowLeft: false,
+        ArrowRight: false
+    };
 
-.card {
-    background: rgba(15, 32, 67, 0.85);
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-    text-align: center;
-    max-width: 390px;
-    width: 100%;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
+    window.addEventListener('keydown', (e) => {
+        if (e.key in keys) keys[e.key] = true;
+    });
 
-.card h2 {
-    margin-top: 0;
-    color: #ffcc00;
-}
+    window.addEventListener('keyup', (e) => {
+        if (e.key in keys) keys[e.key] = false;
+    });
 
-.card p {
-    font-size: 0.9rem;
-    margin-bottom: 15px;
-}
+    // Spawn obstacles periodically
+    function spawnObstacle() {
+        const width = Math.random() * 30 + 25;
+        const x = Math.random() * (canvas.width - width);
+        obstacles.push({
+            x: x,
+            y: -40,
+            width: width,
+            height: 25,
+            speed: 3
+        });
+    }
 
-canvas {
-    background: #004080;
-    border-radius: 8px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-    display: block;
-    margin: 0 auto;
-}
+    // Draw the player's boat
+    function drawBoat() {
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(boat.x + 10, boat.y + 10, 10, 25); // Hull
+        ctx.fillStyle = '#ff4500';
+        ctx.beginPath();
+        ctx.moveTo(boat.x + 15, boat.y);
+        ctx.lineTo(boat.x + 30, boat.y + 15);
+        ctx.lineTo(boat.x + 15, boat.y + 20);
+        ctx.fill(); // Sail
+    }
 
-#scoreBoard {
-    margin-top: 15px;
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #7fffd4;
-}
+    // Draw obstacles (rocks)
+    function drawObstacles() {
+        ctx.fillStyle = '#808080';
+        obstacles.forEach(obs => {
+            ctx.beginPath();
+            ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 6);
+            ctx.fill();
+        });
+    }
 
-button {
-    background-color: #ff7f50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    font-size: 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    margin-top: 15px;
-    font-weight: bold;
-}
+    // Check collision between boat and rocks
+    function checkCollision() {
+        obstacles.forEach(obs => {
+            if (
+                boat.x < obs.x + obs.width &&
+                boat.x + boat.width > obs.x &&
+                boat.y < obs.y + obs.height &&
+                boat.y + boat.height > obs.y
+            ) {
+                isGameOver = true;
+            }
+        });
+    }
 
-button:hover {
-    background-color: #ff5722;
-}
+    // Main game loop
+    function updateGame() {
+        if (isGameOver) {
+            restartBtn.classList.remove('hidden');
+            return;
+        }
 
-.hidden {
-    display: none;
-}
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-footer {
-    margin-top: 20px;
-    font-size: 0.85rem;
-    color: #b0e0e6;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
+        // Move boat based on input
+        if (keys.ArrowLeft && boat.x > 0) {
+            boat.x -= boat.speed;
+        }
+        if (keys.ArrowRight && boat.x < canvas.width - boat.width) {
+            boat.x += boat.speed;
+        }
+
+        // Handle obstacle spawning and movement
+        obstacleTimer++;
+        if (obstacleTimer > 70) {
+            spawnObstacle();
+            obstacleTimer = 0;
+        }
+
+        obstacles.forEach((obs, index) => {
+            obs.y += obs.speed;
+            // Remove off-screen obstacles and add to score
+            if (obs.y > canvas.height) {
+                obstacles.splice(index, 1);
+                score += 10;
+                scoreDisplay.textContent = score;
+            }
+        });
+
+        drawBoat();
+        drawObstacles();
+        checkCollision();
+
+        requestAnimationFrame(updateGame);
+    }
+
+    // Restart game listener
+    restartBtn.addEventListener('click', () => {
+        score = 0;
+        scoreDisplay.textContent = score;
+        obstacles = [];
+        boat.x = canvas.width / 2 - 15;
+        isGameOver = false;
+        restartBtn.classList.add('hidden');
+        updateGame();
+    });
+
+    // Start the game loop for the first time
+    updateGame();
+});
