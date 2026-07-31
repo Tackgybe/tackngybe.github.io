@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let score = 0;
     let isGameOver = false;
+    let animationId = null;
 
     // Player (Boat) properties
     let boat = {
@@ -13,8 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         y: canvas.height - 60,
         width: 30,
         height: 45,
-        speed: 5,
-        dx: 0
+        speed: 6
     };
 
     // Obstacles (Rocks) array
@@ -28,36 +28,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.addEventListener('keydown', (e) => {
-        if (e.key in keys) keys[e.key] = true;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            keys[e.key] = true;
+            // Prevent page from scrolling when pressing arrow keys
+            e.preventDefault(); 
+        }
     });
 
     window.addEventListener('keyup', (e) => {
-        if (e.key in keys) keys[e.key] = false;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            keys[e.key] = false;
+        }
     });
 
     // Spawn obstacles periodically
     function spawnObstacle() {
-        const width = Math.random() * 30 + 25;
+        const width = Math.random() * 35 + 25;
         const x = Math.random() * (canvas.width - width);
         obstacles.push({
             x: x,
             y: -40,
             width: width,
             height: 25,
-            speed: 3
+            speed: 3.5
         });
     }
 
     // Draw the player's boat
     function drawBoat() {
+        // Hull
         ctx.fillStyle = '#f5f5f5';
-        ctx.fillRect(boat.x + 10, boat.y + 10, 10, 25); // Hull
+        ctx.fillRect(boat.x + 8, boat.y + 15, 14, 25); 
+        
+        // Sail
         ctx.fillStyle = '#ff4500';
         ctx.beginPath();
         ctx.moveTo(boat.x + 15, boat.y);
-        ctx.lineTo(boat.x + 30, boat.y + 15);
-        ctx.lineTo(boat.x + 15, boat.y + 20);
-        ctx.fill(); // Sail
+        ctx.lineTo(boat.x + 30, boat.y + 18);
+        ctx.lineTo(boat.x + 15, boat.y + 25);
+        ctx.fill(); 
     }
 
     // Draw obstacles (rocks)
@@ -65,14 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#808080';
         obstacles.forEach(obs => {
             ctx.beginPath();
-            ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 6);
+            if (ctx.roundRect) {
+                ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 6);
+            } else {
+                ctx.rect(obs.x, obs.y, obs.width, obs.height);
+            }
             ctx.fill();
         });
     }
 
     // Check collision between boat and rocks
     function checkCollision() {
-        obstacles.forEach(obs => {
+        for (let obs of obstacles) {
             if (
                 boat.x < obs.x + obs.width &&
                 boat.x + boat.width > obs.x &&
@@ -81,19 +94,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ) {
                 isGameOver = true;
             }
-        });
+        }
     }
 
     // Main game loop
     function updateGame() {
         if (isGameOver) {
+            cancelAnimationFrame(animationId);
             restartBtn.classList.remove('hidden');
             return;
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Move boat based on input
+        // Move boat based on input boundaries
         if (keys.ArrowLeft && boat.x > 0) {
             boat.x -= boat.speed;
         }
@@ -103,26 +117,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle obstacle spawning and movement
         obstacleTimer++;
-        if (obstacleTimer > 70) {
+        if (obstacleTimer > 60) {
             spawnObstacle();
             obstacleTimer = 0;
         }
 
-        obstacles.forEach((obs, index) => {
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
             obs.y += obs.speed;
+            
             // Remove off-screen obstacles and add to score
             if (obs.y > canvas.height) {
-                obstacles.splice(index, 1);
+                obstacles.splice(i, 1);
                 score += 10;
                 scoreDisplay.textContent = score;
             }
-        });
+        }
 
         drawBoat();
         drawObstacles();
         checkCollision();
 
-        requestAnimationFrame(updateGame);
+        animationId = requestAnimationFrame(updateGame);
     }
 
     // Restart game listener
@@ -136,6 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGame();
     });
 
-    // Start the game loop for the first time
+    // Kick off the game loop automatically on load
     updateGame();
 });
